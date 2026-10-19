@@ -1,0 +1,27 @@
+name: cargaexpress_seed
+
+services:
+  seed:
+    build:
+      context: .
+      dockerfile: simulators/seed/Dockerfile
+    restart: "no"
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:?POSTGRES_USER is missing in the .env file}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is missing in the .env file}@db:5432/${POSTGRES_DB:-cargaexpress}
+      SEED_PROFILE: ${SEED_PROFILE:-dev}
+      SEED_DAYS: ${SEED_DAYS:-}
+      SEED_ORDERS_PER_DAY: ${SEED_ORDERS_PER_DAY:-}
+      SEED_START_DATE: ${SEED_START_DATE:-2026-10-01}
+      SEED_RANDOM_SEED: ${SEED_RANDOM_SEED:-42}
+      SEED_ALLOW_REMOTE: ${SEED_ALLOW_REMOTE:-false}
+      APP_ENV: ${APP_ENV:-development}
+    depends_on:
+      backend:
+        condition: service_healthy
+    networks:
+      - cargaexpress
+
+  backend:
+    environment:
+      # Fresh databases assign the three seeded brand IDs as 1, 2, and 3.
+      BRAND_API_KEYS: '{"${SEED_BRAND_KEY_1:?Set SEED_BRAND_KEY_1 in the .env file}":1,"${SEED_BRAND_KEY_2:?Set SEED_BRAND_KEY_2 in the .env file}":2,"${SEED_BRAND_KEY_3:?Set SEED_BRAND_KEY_3 in the .env file}":3}'
