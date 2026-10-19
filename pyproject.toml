@@ -1,0 +1,38 @@
+[project]
+name = "type-c-simulation-data"
+version = "0.1.0"
+description = "Type C Carrier File Simulator with Defect Injection and WMS Seeder"
+requires-python = ">=3.12"
+dependencies = [
+    "openpyxl>=3.1.5",
+    "sqlalchemy[asyncio]>=2.0",
+    "aiosqlite>=0.20",
+    "asyncpg>=0.30",
+    "pydantic-settings>=2.6",
+]
+
+[project.scripts]
+type-c-sim = "simulators.type_c.cli:main"
+wms-seed = "simulators.seed.__main__:main"
+
+[dependency-groups]
+dev = [
+    "pytest>=8.3",
+    "pytest-asyncio>=0.24",
+    "pytest-cov>=6.0",
+    "ruff>=0.8",
+]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "session"
+asyncio_default_test_loop_scope = "session"
+pythonpath = ["."]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
