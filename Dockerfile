@@ -39,5 +39,7 @@ COPY --chown=appuser:appgroup pyproject.toml ./
 
 USER appuser
 
-# By default, runs the autonomous background scheduler (every 4 hours)
-CMD ["python", "-m", "simulators.type_c.scheduler"]
+EXPOSE 8005 8006 8007
+
+# Runs the 3 Carrier HTTP servers (8005, 8006, 8007) + background 4h scheduler
+CMD ["python", "-m", "simulators.type_c.server"]

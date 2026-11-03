@@ -42,12 +42,21 @@ def wait_for_storage(storage: S3StorageManager, max_retries: int = 30, delay: in
     raise ConnectionError(f"Could not connect to Object Storage at {storage.endpoint_url} after {max_retries} attempts.")
 
 
+# Shared latest state in memory for API endpoints
+LATEST_STATE: dict[str, Any] = {
+    "cycle_id": None,
+    "last_updated": None,
+    "carriers": {},
+}
+
+
 def run_batch_cycle(
     storage: S3StorageManager,
     rows_per_carrier: int = 100,
     error_rate: float = 0.10,
     seed: int = 42,
     retention_days: int = 3,
+    local_export_dir: Path | None = None,
 ) -> dict[str, Any]:
     """Execute a single batch cycle: cleanup expired data, generate carrier files, and upload."""
     cycle_time = datetime.now(UTC)
@@ -69,6 +78,9 @@ def run_batch_cycle(
     # 3. Generate and deposit files for all 3 carriers
     batch_results: list[dict[str, Any]] = []
 
+    target_export_dir = local_export_dir or Path("./data/latest")
+    target_export_dir.mkdir(parents=True, exist_ok=True)
+
     with tempfile.TemporaryDirectory() as tmp_dir:
         tmp_path = Path(tmp_dir)
 
@@ -89,11 +101,18 @@ def run_batch_cycle(
             sha256_hash = compute_file_sha256(local_file)
             file_size_bytes = local_file.stat().st_size
 
-            # Deposit into timestamped partition
+            # Save latest copies locally for direct carrier port downloads
+            persistent_file = target_export_dir / f"carrier_{carrier_id}_latest.{fmt}"
+            persistent_file.write_bytes(local_file.read_bytes())
+
+            json_events_file = target_export_dir / f"carrier_{carrier_id}_latest.json"
+            json_events_file.write_text(json.dumps(events, indent=2, default=str), encoding="utf-8")
+
+            # Deposit into timestamped partition in MinIO / S3
             object_key = f"carrier_{carrier_id}/{date_folder}/{filename}"
             storage.upload_file(local_file, object_key)
 
-            # Also deposit as "latest" for instant extraction
+            # Also deposit as "latest" for instant extraction via S3 API
             latest_key = f"carrier_{carrier_id}/latest.{fmt}"
             storage.upload_file(local_file, latest_key)
 
@@ -105,6 +124,7 @@ def run_batch_cycle(
                 "carrier_name": config.name,
                 "format": fmt,
                 "filename": filename,
+                "local_path": str(persistent_file.resolve()),
                 "object_key": object_key,
                 "latest_key": latest_key,
                 "sha256": sha256_hash,
@@ -113,6 +133,11 @@ def run_batch_cycle(
                 "download_url": download_url,
             }
             batch_results.append(result_entry)
+            LATEST_STATE["carriers"][carrier_id] = {
+                **result_entry,
+                "events_sample": events[:5],
+                "total_events": len(events),
+            }
             logger.info("Successfully deposited '%s' (%d bytes, sha256=%s...)", object_key, file_size_bytes, sha256_hash[:12])
 
         # 4. Upload manifest for downstream consumers
@@ -128,6 +153,10 @@ def run_batch_cycle(
         manifest_path.write_text(json.dumps(manifest, indent=2), encoding="utf-8")
         storage.upload_file(manifest_path, f"manifests/{cycle_id}.json", content_type="application/json")
         storage.upload_file(manifest_path, "manifests/latest.json", content_type="application/json")
+
+        (target_export_dir / "latest_manifest.json").write_text(json.dumps(manifest, indent=2), encoding="utf-8")
+        LATEST_STATE["cycle_id"] = cycle_id
+        LATEST_STATE["last_updated"] = cycle_time.isoformat()
 
     logger.info("Cycle %s completed successfully. Deposited %d carrier files.", cycle_id, len(batch_results))
     return manifest

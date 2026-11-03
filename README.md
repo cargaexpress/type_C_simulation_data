@@ -143,21 +143,36 @@ Fulfills requirement **F5** by continuously generating simulated carrier trackin
 
 ### Document Extraction Methods
 
-Downstream consumers, data pipelines, and operators can extract generated carrier files via three methods:
+Downstream consumers, data pipelines, and operators can extract generated carrier files via four methods:
 
-1. **Web Console UI (Browser Extraction)**:
+1. **Carrier Direct HTTP Endpoints (Ports 8005, 8006, 8007)**:
+   Just like Simulator Type B, each transportadora exposes its own dedicated HTTP port with interactive Swagger docs:
+   - **Carrier 1 (TransExpress Logistics - CSV)**: `http://<SERVER_IP>:8005/`
+     - Download CSV: `GET http://<SERVER_IP>:8005/download`
+     - View Events JSON: `GET http://<SERVER_IP>:8005/events`
+     - Swagger UI: `http://<SERVER_IP>:8005/docs`
+   - **Carrier 2 (Rápido Andino - Excel XLSX)**: `http://<SERVER_IP>:8006/`
+     - Download XLSX: `GET http://<SERVER_IP>:8006/download`
+     - View Events JSON: `GET http://<SERVER_IP>:8006/events`
+     - Swagger UI: `http://<SERVER_IP>:8006/docs`
+   - **Carrier 3 (Logística 360 - CSV Numeric)**: `http://<SERVER_IP>:8007/`
+     - Download CSV: `GET http://<SERVER_IP>:8007/download`
+     - View Events JSON: `GET http://<SERVER_IP>:8007/events`
+     - Swagger UI: `http://<SERVER_IP>:8007/docs`
+
+2. **Web Console UI (Browser Extraction)**:
    - Access: `http://localhost:9001` (or `http://<SERVER_IP>:9001`)
    - Credentials: User `cargaexpress_admin` / Password `cargaexpress_minio_secret_123`
    - Action: Navigate to bucket `type-c-carriers`, browse folders (`carrier_1/`, `carrier_2/`, `carrier_3/`), and download files with 1 click.
 
-2. **Standard S3 Protocol / CLI**:
+3. **Standard S3 Protocol / CLI**:
    - Access: `http://localhost:9000`
    - Command:
      ```bash
      aws --endpoint-url http://localhost:9000 s3 cp s3://type-c-carriers/carrier_1/latest.csv ./downloads/
      ```
 
-3. **Manifest Inspection & Direct Links**:
+4. **Manifest Inspection & Direct Links**:
    - Every batch cycle updates `manifests/latest.json` in the bucket containing cycle metadata, SHA256 hashes, file sizes, and presigned download URLs.
 
 ### Quick Start with Docker Compose

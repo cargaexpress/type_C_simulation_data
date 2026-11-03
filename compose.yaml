@@ -25,6 +25,7 @@ services:
       context: .
       dockerfile: Dockerfile
     container_name: cargaexpress_type_c_simulator
+    command: ["python", "-m", "simulators.type_c.server"]
     environment:
       MINIO_ENDPOINT: http://minio:9000
       MINIO_ACCESS_KEY: ${MINIO_ROOT_USER:-cargaexpress_admin}
@@ -35,6 +36,13 @@ services:
       ROWS_PER_CARRIER: ${ROWS_PER_CARRIER:-100}
       ERROR_RATE: ${ERROR_RATE:-0.10}
       SEED: ${SEED:-42}
+      PORT_CARRIER_1: "8005"
+      PORT_CARRIER_2: "8006"
+      PORT_CARRIER_3: "8007"
+    ports:
+      - "8005:8005"   # Carrier 1 API & Direct CSV Download
+      - "8006:8006"   # Carrier 2 API & Direct Excel XLSX Download
+      - "8007:8007"   # Carrier 3 API & Direct CSV Numeric Download
     depends_on:
       minio:
         condition: service_healthy
