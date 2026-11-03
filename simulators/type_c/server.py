@@ -37,12 +37,12 @@ def create_carrier_app(carrier_id: int) -> FastAPI:
     carrier_prefix = f"/carrier-{carrier_id}"
 
     app = FastAPI(
-        title=f"CargaExpress - Transportadora {carrier_id} ({config.name})",
+        title=f"CargaExpress - Carrier {carrier_id} ({config.name})",
         description=(
-            f"API Endpoint para Transportadora Tipo C - {config.name}.\n\n"
-            f"- **Formato**: `{fmt.upper()}`\n"
-            f"- **Periodicidad**: Lote generado cada 4 horas\n"
-            f"- **Almacenamiento**: MinIO / S3 Object Storage + Descarga directa\n"
+            f"API Endpoint for Type C Carrier - {config.name}.\n\n"
+            f"- **Format**: `{fmt.upper()}`\n"
+            f"- **Frequency**: Batch deposited every 4 hours\n"
+            f"- **Storage**: MinIO / S3 Object Storage + Direct Download\n"
         ),
         version="1.0.0",
         openapi_url=f"{carrier_prefix}/openapi.json",
@@ -62,7 +62,7 @@ def create_carrier_app(carrier_id: int) -> FastAPI:
         allow_headers=["*"],
     )
 
-    @app.get("/", summary="Información del estado del lote")
+    @app.get("/", summary="Get latest batch status information")
     def get_info() -> dict[str, Any]:
         info = LATEST_STATE["carriers"].get(carrier_id, {})
         return {
@@ -81,7 +81,7 @@ def create_carrier_app(carrier_id: int) -> FastAPI:
             "health_url": "/health",
         }
 
-    @app.get("/health", summary="Healthcheck del servicio")
+    @app.get("/health", summary="Service healthcheck")
     def health() -> dict[str, Any]:
         return {
             "status": "healthy",
@@ -90,11 +90,11 @@ def create_carrier_app(carrier_id: int) -> FastAPI:
             "format": fmt,
         }
 
-    @app.get("/download", summary="Descargar el archivo más reciente (CSV o XLSX)")
+    @app.get("/download", summary="Download latest batch file (CSV or XLSX)")
     def download_latest_file():
         file_path = DATA_DIR / f"carrier_{carrier_id}_latest.{fmt}"
         if not file_path.exists():
-            raise HTTPException(status_code=404, detail="El archivo aún no ha sido generado por el ciclo.")
+            raise HTTPException(status_code=404, detail="Batch file has not been generated yet.")
 
         media_type = "text/csv" if fmt == "csv" else "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         filename = f"carrier_{carrier_id}_latest.{fmt}"
@@ -104,18 +104,18 @@ def create_carrier_app(carrier_id: int) -> FastAPI:
             media_type=media_type,
         )
 
-    @app.get("/events", summary="Obtener los eventos del lote en formato JSON")
+    @app.get("/events", summary="Get latest batch events in JSON format")
     def get_latest_events():
         json_path = DATA_DIR / f"carrier_{carrier_id}_latest.json"
         if not json_path.exists():
-            raise HTTPException(status_code=404, detail="Los eventos del lote aún no están disponibles.")
+            raise HTTPException(status_code=404, detail="Batch events are not yet available.")
         try:
             data = json.loads(json_path.read_text(encoding="utf-8"))
             return JSONResponse(content={"carrier_id": carrier_id, "count": len(data), "events": data})
         except Exception as exc:
-            raise HTTPException(status_code=500, detail=f"Error leyendo eventos: {exc}")
+            raise HTTPException(status_code=500, detail=f"Error reading batch events: {exc}")
 
-    @app.post("/generate", summary="Forzar la generación inmediata del lote")
+    @app.post("/generate", summary="Trigger immediate on-demand batch generation")
     def force_generation():
         storage = S3StorageManager()
         manifest = run_batch_cycle(
@@ -126,7 +126,7 @@ def create_carrier_app(carrier_id: int) -> FastAPI:
             retention_days=int(os.getenv("RETENTION_DAYS", "3")),
             local_export_dir=DATA_DIR,
         )
-        return {"status": "ok", "message": "Nuevo lote generado con éxito", "cycle_id": manifest.get("cycle_id")}
+        return {"status": "ok", "message": "Fresh batch generated successfully", "cycle_id": manifest.get("cycle_id")}
 
     return app
 
@@ -200,9 +200,9 @@ async def main():
     srv_3 = uvicorn.Server(cfg_3)
 
     logger.info("Starting Carrier HTTP services:")
-    logger.info(" -> Transportadora 1 (CSV)        on port %d", port_1)
-    logger.info(" -> Transportadora 2 (Excel XLSX) on port %d", port_2)
-    logger.info(" -> Transportadora 3 (CSV Num)    on port %d", port_3)
+    logger.info(" -> Carrier 1 (CSV)        on port %d", port_1)
+    logger.info(" -> Carrier 2 (Excel XLSX) on port %d", port_2)
+    logger.info(" -> Carrier 3 (CSV Num)    on port %d", port_3)
 
     await asyncio.gather(
         srv_1.serve(),
