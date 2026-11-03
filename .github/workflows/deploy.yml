@@ -1,0 +1,83 @@
+name: Build, Test and Deploy Type C Batch Simulator to AWS EC2 with MinIO
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Run Unit Tests & Lint
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install uv and Dependencies
+        run: |
+          curl -LsSf https://astral.sh/uv/install.sh | sh
+          export PATH="$HOME/.cargo/bin:$PATH"
+          uv sync --dev
+
+      - name: Run Pytest Suite
+        run: |
+          export PATH="$HOME/.cargo/bin:$PATH"
+          uv run pytest -v
+
+  deploy-ec2:
+    name: Deploy to AWS EC2 with MinIO using GitHub Secrets
+    needs: test
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Deploy to EC2 via SSH
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.EC2_HOST || '3.129.10.158' }}
+          username: ubuntu
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            echo "==> Ensuring Docker and Compose are installed..."
+            if ! command -v docker &> /dev/null; then
+              sudo apt-get update
+              sudo apt-get install -y docker.io docker-compose-v2 git
+              sudo usermod -aG docker ubuntu
+            fi
+
+            echo "==> Updating type_C codebase on EC2..."
+            if [ ! -d "$HOME/type_C_simulation_data" ]; then
+              git clone https://github.com/cargaexpress/type_C_simulation_data.git "$HOME/type_C_simulation_data"
+            fi
+            cd "$HOME/type_C_simulation_data"
+            git fetch origin main
+            git reset --hard origin/main
+
+            echo "==> Generating .env from GitHub Secrets..."
+            cat << 'ENVEOF' > .env
+            MINIO_ROOT_USER=${{ secrets.MINIO_ROOT_USER || 'cargaexpress_admin' }}
+            MINIO_ROOT_PASSWORD=${{ secrets.MINIO_ROOT_PASSWORD || 'cargaexpress_minio_secret_123' }}
+            MINIO_ENDPOINT=http://minio:9000
+            MINIO_BUCKET=${{ secrets.MINIO_BUCKET || 'type-c-carriers' }}
+            INTERVAL_HOURS=${{ secrets.INTERVAL_HOURS || '4' }}
+            RETENTION_DAYS=${{ secrets.RETENTION_DAYS || '3' }}
+            ROWS_PER_CARRIER=${{ secrets.ROWS_PER_CARRIER || '100' }}
+            ERROR_RATE=${{ secrets.ERROR_RATE || '0.10' }}
+            SEED=${{ secrets.SEED || '42' }}
+            ENVEOF
+
+            echo "==> Starting MinIO Object Storage and Type C Simulator..."
+            sudo docker compose up -d --build
+            sudo docker compose ps

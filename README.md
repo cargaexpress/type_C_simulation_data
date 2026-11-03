@@ -122,3 +122,47 @@ docker run --rm cargaexpress-seed:latest which uv
 | **Compressed Transfer Size** | ~125 MB | **60.7 MB** | **-64.3 MB (-51.4%)** |
 | **Build Tools & Wheels** | Present (uv, dev caches) | **Removed** (only runtime virtualenv) | 100% eliminated |
 | **Execution User** | root | **seeduser (UID 1000)** | Hardened |
+
+
+---
+
+## Type C Autonomous Batch Simulator & MinIO Object Storage (F5 Requirement)
+
+Fulfills requirement **F5** by continuously generating simulated carrier tracking files (CSV / Excel XLSX) with controlled defect injection every 4 hours and depositing them into an S3-compatible Object Storage (MinIO) backed by persistent Docker volumes and automated retention cleanup.
+
+### Architecture Overview
+
+- **3 Carriers Simulated**:
+  - **Carrier 1 (TransExpress Logistics)**: English technical CSV (`waybill_no`, `status_code`, `event_time`, `hub_city`).
+  - **Carrier 2 (Rápido Andino)**: Operational Spanish Excel XLSX (`numero_guia`, `estado_operativo`, `fecha_hora_evento`, `sucursal`).
+  - **Carrier 3 (Logística 360)**: Numeric code CSV (`tracking_code`, `code`, `event_date`, `center_id`).
+- **Defect Injection Engine**: Automatically introduces nonexistent waybills, out-of-sequence events, mixed date formats, summary footers, and duplicates.
+- **MinIO Object Storage**: S3-compatible storage engine (`pgsty/silo`) running on port `9000` (API) and `9001` (Web Console).
+- **Automated Retention Policy**: Objects older than `RETENTION_DAYS` (default: 3 days) are purged during each 4-hour cycle to prevent storage costs and unbounded disk consumption.
+- **Persistent Volume**: Backed by named volume `cargaexpress_type_c_minio_data`.
+
+### Document Extraction Methods
+
+Downstream consumers, data pipelines, and operators can extract generated carrier files via three methods:
+
+1. **Web Console UI (Browser Extraction)**:
+   - Access: `http://localhost:9001` (or `http://<SERVER_IP>:9001`)
+   - Credentials: User `cargaexpress_admin` / Password `cargaexpress_minio_secret_123`
+   - Action: Navigate to bucket `type-c-carriers`, browse folders (`carrier_1/`, `carrier_2/`, `carrier_3/`), and download files with 1 click.
+
+2. **Standard S3 Protocol / CLI**:
+   - Access: `http://localhost:9000`
+   - Command:
+     ```bash
+     aws --endpoint-url http://localhost:9000 s3 cp s3://type-c-carriers/carrier_1/latest.csv ./downloads/
+     ```
+
+3. **Manifest Inspection & Direct Links**:
+   - Every batch cycle updates `manifests/latest.json` in the bucket containing cycle metadata, SHA256 hashes, file sizes, and presigned download URLs.
+
+### Quick Start with Docker Compose
+
+```bash
+cp .env.example .env
+docker compose up -d
+```

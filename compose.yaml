@@ -1,0 +1,45 @@
+services:
+  minio:
+    image: pgsty/silo:latest
+    container_name: cargaexpress_type_c_minio
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-cargaexpress_admin}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-cargaexpress_minio_secret_123}
+    ports:
+      - "9000:9000"   # MinIO S3 API Protocol
+      - "9001:9001"   # MinIO Web Console UI for browser downloads
+    volumes:
+      - minio_data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://127.0.0.1:9000/minio/health/live || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 15
+      start_period: 5s
+    restart: unless-stopped
+
+  type_c_simulator:
+    image: cargaexpress_type_c_simulator:latest
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: cargaexpress_type_c_simulator
+    environment:
+      MINIO_ENDPOINT: http://minio:9000
+      MINIO_ACCESS_KEY: ${MINIO_ROOT_USER:-cargaexpress_admin}
+      MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-cargaexpress_minio_secret_123}
+      MINIO_BUCKET: ${MINIO_BUCKET:-type-c-carriers}
+      INTERVAL_HOURS: ${INTERVAL_HOURS:-4}
+      RETENTION_DAYS: ${RETENTION_DAYS:-3}
+      ROWS_PER_CARRIER: ${ROWS_PER_CARRIER:-100}
+      ERROR_RATE: ${ERROR_RATE:-0.10}
+      SEED: ${SEED:-42}
+    depends_on:
+      minio:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  minio_data:
+    name: cargaexpress_type_c_minio_data

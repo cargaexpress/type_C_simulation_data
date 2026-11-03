@@ -9,10 +9,12 @@ dependencies = [
     "aiosqlite>=0.20",
     "asyncpg>=0.30",
     "pydantic-settings>=2.6",
+    "boto3>=1.43.123",
 ]
 
 [project.scripts]
 type-c-sim = "simulators.type_c.cli:main"
+type-c-scheduler = "simulators.type_c.scheduler:main"
 wms-seed = "simulators.seed.__main__:main"
 
 [project.optional-dependencies]
