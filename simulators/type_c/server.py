@@ -34,6 +34,7 @@ def create_carrier_app(carrier_id: int) -> FastAPI:
     """Create a FastAPI application dedicated to a single carrier on its own port."""
     config = get_carrier_config(carrier_id)
     fmt = config.default_format
+    carrier_prefix = f"/carrier-{carrier_id}"
 
     app = FastAPI(
         title=f"CargaExpress - Transportadora {carrier_id} ({config.name})",
@@ -44,10 +45,14 @@ def create_carrier_app(carrier_id: int) -> FastAPI:
             f"- **Almacenamiento**: MinIO / S3 Object Storage + Descarga directa\n"
         ),
         version="1.0.0",
-        root_path=os.getenv(f"ROOT_PATH_CARRIER_{carrier_id}", f"/carrier-{carrier_id}"),
+        openapi_url=f"{carrier_prefix}/openapi.json",
         docs_url="/docs",
         redoc_url="/redoc",
     )
+
+    @app.get("/openapi.json", include_in_schema=False)
+    def root_openapi():
+        return app.openapi()
 
     app.add_middleware(
         CORSMiddleware,
