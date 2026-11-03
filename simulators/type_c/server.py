@@ -44,6 +44,7 @@ def create_carrier_app(carrier_id: int) -> FastAPI:
             f"- **Almacenamiento**: MinIO / S3 Object Storage + Descarga directa\n"
         ),
         version="1.0.0",
+        root_path=os.getenv(f"ROOT_PATH_CARRIER_{carrier_id}", f"/carrier-{carrier_id}"),
         docs_url="/docs",
         redoc_url="/redoc",
     )
