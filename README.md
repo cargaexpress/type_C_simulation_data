@@ -143,37 +143,51 @@ Fulfills requirement **F5** by continuously generating simulated carrier trackin
 
 ### Document Extraction Methods
 
-Downstream consumers, data pipelines, and operators can extract generated carrier files via four methods:
+Downstream consumers, data pipelines, and operators can extract generated carrier files via four production-ready methods:
 
-1. **Carrier Direct HTTP Endpoints (Ports 8005, 8006, 8007)**:
-   Just like Simulator Type B, each transportadora exposes its own dedicated HTTP port with interactive Swagger docs:
-   - **Carrier 1 (TransExpress Logistics - CSV)**: `http://<SERVER_IP>:8005/`
-     - Download CSV: `GET http://<SERVER_IP>:8005/download`
-     - View Events JSON: `GET http://<SERVER_IP>:8005/events`
-     - Swagger UI: `http://<SERVER_IP>:8005/docs`
-   - **Carrier 2 (Rápido Andino - Excel XLSX)**: `http://<SERVER_IP>:8006/`
-     - Download XLSX: `GET http://<SERVER_IP>:8006/download`
-     - View Events JSON: `GET http://<SERVER_IP>:8006/events`
-     - Swagger UI: `http://<SERVER_IP>:8006/docs`
-   - **Carrier 3 (Logística 360 - CSV Numeric)**: `http://<SERVER_IP>:8007/`
-     - Download CSV: `GET http://<SERVER_IP>:8007/download`
-     - View Events JSON: `GET http://<SERVER_IP>:8007/events`
-     - Swagger UI: `http://<SERVER_IP>:8007/docs`
+1. **HTTPS Unified Gateway (Zero-Cost SSL + Domain)**:
+   Accessible via public HTTPS with valid Let's Encrypt certificates:
+   - **Carrier 1 (TransExpress Logistics - CSV)**:
+     - Swagger UI: [https://cargaexpress-simulator-b.mooo.com/carrier-1/docs](https://cargaexpress-simulator-b.mooo.com/carrier-1/docs)
+     - Direct CSV Download: [https://cargaexpress-simulator-b.mooo.com/carrier-1/download](https://cargaexpress-simulator-b.mooo.com/carrier-1/download)
+     - JSON Events: [https://cargaexpress-simulator-b.mooo.com/carrier-1/events](https://cargaexpress-simulator-b.mooo.com/carrier-1/events)
+   - **Carrier 2 (Rápido Andino - Excel XLSX)**:
+     - Swagger UI: [https://cargaexpress-simulator-b.mooo.com/carrier-2/docs](https://cargaexpress-simulator-b.mooo.com/carrier-2/docs)
+     - Direct XLSX Download: [https://cargaexpress-simulator-b.mooo.com/carrier-2/download](https://cargaexpress-simulator-b.mooo.com/carrier-2/download)
+     - JSON Events: [https://cargaexpress-simulator-b.mooo.com/carrier-2/events](https://cargaexpress-simulator-b.mooo.com/carrier-2/events)
+   - **Carrier 3 (Logística 360 - CSV Numeric)**:
+     - Swagger UI: [https://cargaexpress-simulator-b.mooo.com/carrier-3/docs](https://cargaexpress-simulator-b.mooo.com/carrier-3/docs)
+     - Direct CSV Download: [https://cargaexpress-simulator-b.mooo.com/carrier-3/download](https://cargaexpress-simulator-b.mooo.com/carrier-3/download)
+     - JSON Events: [https://cargaexpress-simulator-b.mooo.com/carrier-3/events](https://cargaexpress-simulator-b.mooo.com/carrier-3/events)
 
-2. **Web Console UI (Browser Extraction)**:
-   - Access: `http://localhost:9001` (or `http://<SERVER_IP>:9001`)
+2. **Dedicated Carrier Direct Ports (8005, 8006, 8007)**:
+   Directly hit each transportadora on its dedicated TCP port:
+   - Carrier 1: `http://<SERVER_IP>:8005/docs` (and `/download`, `/events`)
+   - Carrier 2: `http://<SERVER_IP>:8006/docs` (and `/download`, `/events`)
+   - Carrier 3: `http://<SERVER_IP>:8007/docs` (and `/download`, `/events`)
+
+3. **Web Console UI (MinIO Object Storage Browser)**:
+   - Web Console: [https://cargaexpress-simulator-b.mooo.com/minio/](https://cargaexpress-simulator-b.mooo.com/minio/) or `http://<SERVER_IP>:9001`
    - Credentials: User `cargaexpress_admin` / Password `cargaexpress_minio_secret_123`
    - Action: Navigate to bucket `type-c-carriers`, browse folders (`carrier_1/`, `carrier_2/`, `carrier_3/`), and download files with 1 click.
 
-3. **Standard S3 Protocol / CLI**:
-   - Access: `http://localhost:9000`
-   - Command:
+4. **Standard S3 Protocol / CLI / SDK**:
+   - Access: `http://<SERVER_IP>:9000` (or internal Docker network `http://minio:9000`)
+   - Example Command:
      ```bash
-     aws --endpoint-url http://localhost:9000 s3 cp s3://type-c-carriers/carrier_1/latest.csv ./downloads/
+     aws --endpoint-url http://3.129.10.158:9000 s3 cp s3://type-c-carriers/carrier_1/latest.csv ./downloads/
      ```
-
-4. **Manifest Inspection & Direct Links**:
-   - Every batch cycle updates `manifests/latest.json` in the bucket containing cycle metadata, SHA256 hashes, file sizes, and presigned download URLs.
+   - Python `boto3` Extraction:
+     ```python
+     import boto3
+     s3 = boto3.client(
+         "s3",
+         endpoint_url="http://3.129.10.158:9000",
+         aws_access_key_id="cargaexpress_admin",
+         aws_secret_access_key="cargaexpress_minio_secret_123",
+     )
+     s3.download_file("type-c-carriers", "carrier_1/latest.csv", "carrier_1.csv")
+     ```
 
 ### Quick Start with Docker Compose
 
