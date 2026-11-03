@@ -20,7 +20,6 @@ services:
     restart: unless-stopped
 
   type_c_simulator:
-    image: cargaexpress_type_c_simulator:latest
     build:
       context: .
       dockerfile: Dockerfile
